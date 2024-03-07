@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.18;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract BeltSubscription is ERC20, Ownable(msg.sender) {
+    enum BeltType { Leather, Fabric, Chain }
+
+    event BeltRedeemed(address indexed account, BeltType beltType, uint256 beltCost);
+    event TokensBurned(address indexed account, uint256 amount);
+
+    mapping(address => BeltType) public userBelts;
+
+    uint256 public constant LeatherCost = 100;
+    uint256 public constant FabricCost = 200;
+    uint256 public constant ChainCost = 500;
+
+    constructor() ERC20("BeltCoin", "BELT") {}
+
+    // Mint tokens to the specified address
+    function mintTokens(address to, uint256 amount) public onlyOwner {
+        _mint(to, amount);
+    }
+
+    // Burn a specific amount of tokens
+    function burnTokens(uint256 amount) public {
+        require(amount > 0, "Amount to burn must be greater than zero");
+        require(balanceOf(msg.sender) >= amount, "Insufficient funds for token burn");
+
+        // Burn the tokens
+        _burn(msg.sender, amount);
+
+        // Emit the burn event
+        emit TokensBurned(msg.sender, amount);
+    }
+
+    // Redeem a Belt based on the specified belt type
+    function redeemBelt(uint8 beltTypeNumber) public {
+        require(beltTypeNumber >= 1 && beltTypeNumber <= 3, "Invalid belt type number");
+
+        BeltType beltType;
+        uint256 beltCost;
+
+        // Determine the Belt type and cost based on the belt type number
+        if (beltTypeNumber == 1) {
+            beltType = BeltType.Leather;
+            beltCost = LeatherCost;
+        } else if (beltTypeNumber == 2) {
+            beltType = BeltType.Fabric;
+            beltCost = FabricCost;
+        } else {
+            beltType = BeltType.Chain;
+            beltCost = ChainCost;
+        }
+
+        // Check if the user has sufficient funds for the belt redemption
+        require(balanceOf(msg.sender) >= beltCost, "Insufficient funds for Belt redemption");
+
+        // Burn the tokens to redeem the Belt
+        _burn(msg.sender, beltCost);
+
+        // Update the user's Belt subscription
+        userBelts[msg.sender] = beltType;
+
+        // Emit the redemption event
+        emit BeltRedeemed(msg.sender, beltType, beltCost);
+    }
+
+    // Transfer tokens to another address
+    function transferTokens(address to, uint256 amount) external {
+        require(to != address(0), "Invalid recipient address");
+        require(balanceOf(msg.sender) >= amount, "Insufficient funds for token transfer");
+
+        // Transfer the tokens
+        _transfer(msg.sender, to, amount);
+    }
+
+    // Get the Belt type associated with the caller's address
+    function getBeltType() external view returns (BeltType) {
+        return userBelts[msg.sender];
+    }
+}
